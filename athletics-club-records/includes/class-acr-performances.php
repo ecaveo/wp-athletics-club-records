@@ -1,0 +1,64 @@
+<?php
+/**
+ * Performances table.
+ *
+ * @package AthleticsClubRecords
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class ACR_Performances {
+
+	public static function table() {
+		global $wpdb;
+		return $wpdb->prefix . 'acr_performances';
+	}
+
+	/**
+	 * Insert a performance unless an identical (athlete, event, date, raw) already exists.
+	 *
+	 * @return int performance row id.
+	 */
+	public static function insert_unique( array $data ) {
+		global $wpdb;
+		$t = self::table();
+
+		$existing = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$t} WHERE athlete_id = %d AND event = %s AND perf_date = %s AND performance_raw = %s LIMIT 1",
+			$data['athlete_id'], $data['event'], $data['perf_date'], $data['performance_raw']
+		) );
+		if ( $existing ) {
+			return $existing;
+		}
+
+		$parsed = ACR_PerfValue::parse( $data['performance_raw'], $data['event'] );
+		$row = array(
+			'athlete_id'        => (int) $data['athlete_id'],
+			'event'             => $data['event'],
+			'performance_raw'   => $data['performance_raw'],
+			'performance_value' => $parsed['value'],
+			'is_indoor'         => isset( $data['is_indoor'] ) ? (int) $data['is_indoor'] : ( $parsed['indoor'] ? 1 : 0 ),
+			'is_wind_assisted'  => isset( $data['is_wind_assisted'] ) ? (int) $data['is_wind_assisted'] : ( $parsed['wind'] ? 1 : 0 ),
+			'is_field'          => ACR_PerfValue::is_field_event( $data['event'] ) ? 1 : 0,
+			'position'          => isset( $data['position'] ) ? $data['position'] : null,
+			'venue'             => isset( $data['venue'] ) ? $data['venue'] : null,
+			'perf_date'         => $data['perf_date'],
+			'source_url'        => isset( $data['source_url'] ) ? $data['source_url'] : null,
+		);
+		$wpdb->insert( $t, $row );
+		return (int) $wpdb->insert_id;
+	}
+
+	public static function for_athlete( $athlete_id ) {
+		global $wpdb;
+		return $wpdb->get_results( $wpdb->prepare(
+			'SELECT * FROM ' . self::table() . ' WHERE athlete_id = %d ORDER BY perf_date ASC',
+			$athlete_id
+		) );
+	}
+
+	public static function count() {
+		global $wpdb;
+		return (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::table() );
+	}
+}

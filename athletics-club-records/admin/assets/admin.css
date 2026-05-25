@@ -1,0 +1,30 @@
+.acr-wrap pre { background:#f6f7f7; padding:1em; border-radius:4px; white-space:pre-wrap; }
+.acr-stat-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 1em;
+	max-width: 800px;
+	margin: 1em 0;
+}
+.acr-stat {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 6px;
+	padding: 1em;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+}
+.acr-stat .num { font-size: 2em; font-weight: 700; color: #2271b1; }
+.acr-meta { font-size: 0.85em; color: #777; font-style: italic; }
+.acr-status {
+	display: inline-block;
+	padding: 0.1em 0.6em;
+	border-radius: 10px;
+	font-size: 0.85em;
+	color: #fff;
+}
+.acr-status-pending { background:#aaa; }
+.acr-status-claimed { background:#dba617; }
+.acr-status-done    { background:#46b450; }
+.acr-status-failed  { background:#dc3232; }

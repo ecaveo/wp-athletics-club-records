@@ -1,0 +1,22 @@
+/* Minimal — the table inherits Ninja Tables styling already present on the site. */
+.acr-records-wrapper { margin: 1em 0; }
+.acr-filter { margin-bottom: 0.5em; }
+.acr-filter-input {
+	width: 100%;
+	padding: 0.5em 0.75em;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	box-sizing: border-box;
+}
+.acr-records { width: 100%; }
+.acr-meta {
+	margin-top: 0.5em;
+	font-size: 0.85em;
+	color: #888;
+	font-style: italic;
+}
+.acr-row.acr-verified td.ninja_column_5::after {
+	content: " ✓";
+	color: #2c7;
+	font-size: 0.8em;
+}
