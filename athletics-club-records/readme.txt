@@ -4,7 +4,7 @@ Tags: athletics, records, power of 10, club, sports
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.3.6
+Stable tag: 0.3.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,10 @@ You can still use it as a manual records database — admin can edit any cell. B
 Yes. Set your club's UUID in Settings.
 
 == Changelog ==
+
+= 0.3.7 =
+* Recompute now applies UKA-standard inclusive age-band semantics: a junior performance counts for its own bucket AND every older junior bucket (U14 ⇒ U14/U16/U18/U20). A masters performance counts for its own bucket AND every younger masters bucket (V60 ⇒ V35/V40/V45/V50/V55/V60). SEN remains senior-only. So a 14-year-old's PB now legitimately holds the U16/U18/U20 records too if no older athlete has bettered it.
+* Recompute now clears all non-override `source='recompute'` record cells before rebuilding, so cells whose qualifying performance moved buckets (or was deleted) no longer leave stale entries.
 
 = 0.3.6 =
 * New: GET /wp-json/acr/v1/athletes endpoint (auth required) returning id, name, sex, po10_id, first_claim for every athlete in the DB. Lets an agent look up Po10 UUIDs without scraping the rate-limited club rankings page. Supports ?sex= and ?first_claim= filters.

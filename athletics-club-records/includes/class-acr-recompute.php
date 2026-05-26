@@ -42,12 +42,31 @@ class ACR_Recompute {
 		'V75'  => 'V75', 'V80' => 'V80', 'V85' => 'V80', 'V90' => 'V80',
 	);
 
+	/**
+	 * Junior bucket ladder, youngest → oldest. A perf tagged with one of these
+	 * is also eligible for every bucket to its right (a U14 athlete's PB also
+	 * holds U16/U18/U20 records if no older athlete has bettered it).
+	 */
+	const JUNIOR_LADDER = array( 'U14', 'U16', 'U18', 'U20' );
+
+	/**
+	 * Masters bucket ladder, youngest → oldest. A perf tagged with one of these
+	 * is also eligible for every bucket to its LEFT (a V60 athlete's PB also
+	 * holds V35/V40/V45/V50/V55 records).
+	 */
+	const MASTERS_LADDER = array( 'V35', 'V40', 'V45', 'V50', 'V55', 'V60', 'V65', 'V70', 'V75', 'V80' );
+
 	public function run() {
 		global $wpdb;
 		$pt = ACR_Performances::table();
 		$at = ACR_Athletes::table();
+		$rt = ACR_Records::table();
 		$settings = acr_get_settings();
 		$cutoff_year = (int) substr( $settings['performances_since'], 0, 4 );
+
+		// v0.3.7: clear non-override recompute cells so cells whose qualifying
+		// performance moved buckets (or was deleted) don't leave stale entries.
+		$wpdb->query( "DELETE FROM {$rt} WHERE source = 'recompute' AND is_manual_override = 0" );
 
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT p.*, a.sex, a.first_claim, a.name as athlete_name
@@ -104,11 +123,10 @@ class ACR_Recompute {
 			if ( ! $p->event || ! $p->performance_value ) {
 				continue;
 			}
-			$age_group = $this->map_age_group( $p->age_group_at_time );
-			if ( ! $age_group ) {
+			$base = $this->map_age_group( $p->age_group_at_time );
+			if ( ! $base ) {
 				continue;
 			}
-			$key = strtoupper( $p->sex ) . '|' . $age_group . '|' . $p->event;
 			$candidate = array(
 				'performance_raw'   => $p->performance_raw,
 				'performance_value' => (float) $p->performance_value,
@@ -118,20 +136,49 @@ class ACR_Recompute {
 				'perf_date'         => $p->perf_date,
 				'performance_id'    => (int) $p->id,
 			);
-			if ( ! isset( $buckets[ $key ] ) ) {
-				$buckets[ $key ] = $candidate;
-				continue;
-			}
-			$cmp = ACR_PerfValue::compare(
-				$p->event,
-				$candidate['performance_value'],
-				$buckets[ $key ]['performance_value']
-			);
-			if ( $cmp < 0 ) {
-				$buckets[ $key ] = $candidate;
+			$sex = strtoupper( $p->sex );
+
+			// v0.3.7: a performance counts for its own bucket AND every inclusive
+			// bucket — juniors propagate upward (U14 ⇒ U14/U16/U18/U20), masters
+			// propagate downward (V60 ⇒ V35/V40/V45/V50/V55/V60). SEN stays
+			// senior-only.
+			foreach ( $this->eligible_buckets( $base ) as $bucket ) {
+				$key = $sex . '|' . $bucket . '|' . $p->event;
+				if ( ! isset( $buckets[ $key ] ) ) {
+					$buckets[ $key ] = $candidate;
+					continue;
+				}
+				$cmp = ACR_PerfValue::compare(
+					$p->event,
+					$candidate['performance_value'],
+					$buckets[ $key ]['performance_value']
+				);
+				if ( $cmp < 0 ) {
+					$buckets[ $key ] = $candidate;
+				}
 			}
 		}
 		return $buckets;
+	}
+
+	/**
+	 * Return the list of age-group buckets a performance with the given base
+	 * tag is eligible to hold records for. See class constants JUNIOR_LADDER
+	 * and MASTERS_LADDER above for the rules.
+	 *
+	 * @param string $base mapped age-group code (one of U14/U16/U18/U20/SEN/V35..V80).
+	 * @return string[] buckets including $base itself.
+	 */
+	protected function eligible_buckets( $base ) {
+		$jidx = array_search( $base, self::JUNIOR_LADDER, true );
+		if ( $jidx !== false ) {
+			return array_slice( self::JUNIOR_LADDER, $jidx );
+		}
+		$midx = array_search( $base, self::MASTERS_LADDER, true );
+		if ( $midx !== false ) {
+			return array_slice( self::MASTERS_LADDER, 0, $midx + 1 );
+		}
+		return array( $base );
 	}
 
 	protected function map_age_group( $po10_label ) {
