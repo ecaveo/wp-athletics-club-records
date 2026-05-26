@@ -3,7 +3,7 @@
  * Plugin Name:       Athletics Club Records
  * Plugin URI:        https://github.com/brentwoodbeagles/wp-athletics-club-records
  * Description:       Maintains an athletics club's age-group records by pulling first-claim member performances from Power of 10 via an admin-driven Claude-in-Chrome agent loop. Records are recomputed from raw performances against the current age-group structure (U14/U16/U18/U20/senior/masters).
- * Version:           0.3.7
+ * Version:           0.3.8
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Brentwood Beagles Athletics Club
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ACR_VERSION', '0.3.7' );
+define( 'ACR_VERSION', '0.3.8' );
 define( 'ACR_PLUGIN_FILE', __FILE__ );
 define( 'ACR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ACR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
