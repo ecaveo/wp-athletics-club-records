@@ -57,6 +57,20 @@ class ACR_REST {
 			'callback'            => array( __CLASS__, 'recompute' ),
 			'permission_callback' => array( __CLASS__, 'check_token' ),
 		) );
+		register_rest_route( 'acr/v1', '/jobs/release-claimed', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'release_claimed' ),
+			'permission_callback' => array( __CLASS__, 'check_token' ),
+		) );
+	}
+
+	public static function release_claimed( $request ) {
+		$min_age = (int) ( $request->get_param( 'min_age_minutes' ) ?? 0 );
+		$released = ACR_Jobs::release_claimed( $min_age );
+		return rest_ensure_response( array(
+			'released' => $released,
+			'stats'    => ACR_Jobs::stats(),
+		) );
 	}
 
 	public static function check_token( $request ) {

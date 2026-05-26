@@ -3,7 +3,7 @@
  * Plugin Name:       Athletics Club Records
  * Plugin URI:        https://github.com/brentwoodbeagles/wp-athletics-club-records
  * Description:       Maintains an athletics club's age-group records by pulling first-claim member performances from Power of 10 via an admin-driven Claude-in-Chrome agent loop. Records are recomputed from raw performances against the current age-group structure (U14/U16/U18/U20/senior/masters).
- * Version:           0.3.1
+ * Version:           0.3.4
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Brentwood Beagles Athletics Club
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ACR_VERSION', '0.3.1' );
+define( 'ACR_VERSION', '0.3.4' );
 define( 'ACR_PLUGIN_FILE', __FILE__ );
 define( 'ACR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ACR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -120,4 +120,73 @@ function acr_events() {
 		'relays' => array( '4x100', '4x200', '4x400' ),
 		'road' => array( '5K', '10K', 'Half Marathon', 'Marathon', 'parkrun' ),
 	);
+}
+
+/**
+ * UKA event eligibility per age group (TR3 S2 / TR3 S4).
+ *
+ * Returns true if a competitor in $age_group is permitted to compete in
+ * $event under the current UKA rules. Used by the public renderer to hide
+ * (event, age_group) cells that are not legal (e.g. U14 Marathon, U14
+ * Triple Jump, U16 race over 3000m).
+ *
+ * Senior (SEN) and Masters (V35+) age groups are eligible for everything;
+ * specific Masters implement weights are not modelled here as Po10 already
+ * records the appropriate event for each athlete.
+ *
+ * @param string $event      Event name as used in acr_events().
+ * @param string $age_group  Age group code (U14|U16|U18|U20|SEN|V35..V80).
+ * @return bool
+ */
+function acr_event_allowed( $event, $age_group ) {
+	// Senior + Masters: nothing restricted by these rules.
+	if ( $age_group === 'SEN' || strpos( $age_group, 'V' ) === 0 ) {
+		return true;
+	}
+
+	// Helper to detect track race distance from event name like "1500", "10000", "3000SC".
+	$is_distance_event = preg_match( '/^(\d+)(SC|H)?$/', $event, $m );
+	$distance_metres   = $is_distance_event ? (int) $m[1] : 0;
+	$is_steeplechase   = $is_distance_event && isset( $m[2] ) && $m[2] === 'SC';
+	$is_hurdles        = $is_distance_event && isset( $m[2] ) && $m[2] === 'H';
+
+	switch ( $age_group ) {
+		case 'U14':
+			// TR3 S2(1): max track race one mile (~1609m); no 300m or 400m;
+			// no Triple Jump; 1200m SC only (not in our event list).
+			if ( $event === 'Triple Jump' )                           return false;
+			if ( in_array( $event, array( '300', '400', '300H', '400H' ), true ) ) return false;
+			if ( $event === '2000SC' || $event === '3000SC' )         return false;
+			if ( $event === '110H' )                                  return false; // senior men's hurdle
+			if ( $is_distance_event && ! $is_hurdles && ! $is_steeplechase && $distance_metres > 1609 ) return false;
+			// Road / off-track max 6km (TR3 S4):
+			if ( $event === '10K' )                                   return false;
+			if ( $event === 'Half Marathon' )                         return false;
+			if ( $event === 'Marathon' )                              return false;
+			return true;
+
+		case 'U16':
+			// TR3 S2(2): no race in excess of 3000m; 2000SC permitted for 16-by-Dec-31 athletes.
+			if ( $event === '110H' )                                  return false;
+			if ( $event === '3000SC' )                                return false;
+			if ( $is_distance_event && ! $is_hurdles && ! $is_steeplechase && $distance_metres > 3000 ) return false;
+			// Road max 12km (TR3 S4):
+			if ( $event === 'Half Marathon' )                         return false;
+			if ( $event === 'Marathon' )                              return false;
+			return true;
+
+		case 'U18':
+			// TR3 S2(3): no track event in excess of 5000m.
+			if ( $is_distance_event && ! $is_hurdles && ! $is_steeplechase && $distance_metres > 5000 ) return false;
+			// Road max 25km (TR3 S4):
+			if ( $event === 'Marathon' )                              return false;
+			return true;
+
+		case 'U20':
+			// TR3 S2(4): no track event in excess of 10000m. Road incl. Marathon allowed.
+			if ( $is_distance_event && ! $is_hurdles && ! $is_steeplechase && $distance_metres > 10000 ) return false;
+			return true;
+	}
+
+	return true;
 }

@@ -1,9 +1,28 @@
 /* Minimal — the table inherits Ninja Tables styling already present on the site. */
 .acr-records-wrapper { margin: 1em 0; }
-.acr-filter { margin-bottom: 0.5em; }
+.acr-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1em 1.5em;
+	align-items: center;
+	margin-bottom: 0.75em;
+	padding: 0.5em 0.75em;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 4px;
+}
+.acr-control-group {
+	display: flex;
+	gap: 0.5em;
+	align-items: center;
+}
+.acr-control-group strong { font-weight: 600; }
+.acr-control-group label { cursor: pointer; }
+.acr-control-group input[type=radio],
+.acr-control-group input[type=checkbox] { margin-right: 0.25em; }
+.acr-filter { flex: 1 1 250px; min-width: 200px; }
 .acr-filter-input {
 	width: 100%;
-	padding: 0.5em 0.75em;
+	padding: 0.4em 0.75em;
 	border: 1px solid #ccc;
 	border-radius: 4px;
 	box-sizing: border-box;
@@ -20,3 +39,4 @@
 	color: #2c7;
 	font-size: 0.8em;
 }
+.acr-row.acr-empty { opacity: 0.55; }

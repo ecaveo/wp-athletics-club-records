@@ -4,7 +4,7 @@ Tags: athletics, records, power of 10, club, sports
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.3.1
+Stable tag: 0.3.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,23 @@ You can still use it as a manual records database — admin can edit any cell. B
 Yes. Set your club's UUID in Settings.
 
 == Changelog ==
+
+= 0.3.4 =
+* UKA Competition Rules (TR3 S2 / TR3 S4) compliance — disallowed (event, age_group) combinations are no longer rendered.
+* No more U14 Triple Jump, U14 Marathon, U14 race over 1 mile, U14 300m/400m, U16 race over 3000m, U16 Marathon/Half Marathon, U18 Marathon, U18 10000m, etc.
+* New helper function acr_event_allowed($event, $age_group) for use anywhere that needs to filter on UKA eligibility.
+
+= 0.3.3 =
+* Shortcode default is now gender="all" — renders both sexes with a Sex column.
+* New radio buttons at the top of the table: Women / Men / All. Live filter, no page reload.
+* New "Hide empty rows" checkbox (default ON) — only show event/age cells that actually have a record.
+* Empty cells render at 55% opacity so unfilled records aren't visually noisy when shown.
+* Use [acr_records gender="women"] or [acr_records gender="men"] for single-sex pages (backward compatible).
+
+= 0.3.2 =
+* New: "Release stuck-claimed jobs" admin button on Agent Queue page.
+* New: POST /wp-json/acr/v1/jobs/release-claimed REST endpoint (auth required).
+* Resets jobs stuck in "claimed" status (i.e. fetched by an agent that never posted results) back to "pending" so they can be re-fetched.
 
 = 0.3.1 =
 * Bugfix: athletes.po10_id widened from VARCHAR(32) to VARCHAR(40). Po10 UUIDs are 36 chars and were being rejected on strict-mode MySQL hosts.

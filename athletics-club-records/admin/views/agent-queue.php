@@ -36,10 +36,15 @@ echo esc_html( $sop );
 
 	<h2>3. Watch the queue drain</h2>
 	<p>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline; margin-right:1em;">
 			<?php wp_nonce_field( 'acr_clear_completed' ); ?>
 			<input type="hidden" name="action" value="acr_clear_completed" />
 			<button class="button" type="submit">Clear done/failed jobs</button>
+		</form>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('Release all stuck-claimed jobs back to pending? Use this if an agent GETs jobs but never POSTs results.');">
+			<?php wp_nonce_field( 'acr_release_claimed' ); ?>
+			<input type="hidden" name="action" value="acr_release_claimed" />
+			<button class="button" type="submit">Release stuck-claimed jobs</button>
 		</form>
 	</p>
 	<table class="widefat striped">

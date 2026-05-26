@@ -24,6 +24,7 @@ class ACR_Admin {
 		add_action( 'admin_post_acr_seed', array( __CLASS__, 'handle_seed' ) );
 		add_action( 'admin_post_acr_plan', array( __CLASS__, 'handle_plan' ) );
 		add_action( 'admin_post_acr_clear_completed', array( __CLASS__, 'handle_clear_completed' ) );
+		add_action( 'admin_post_acr_release_claimed', array( __CLASS__, 'handle_release_claimed' ) );
 		add_action( 'admin_post_acr_recompute', array( __CLASS__, 'handle_recompute' ) );
 		add_action( 'admin_post_acr_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_acr_rotate_token', array( __CLASS__, 'handle_rotate_token' ) );
@@ -129,6 +130,15 @@ class ACR_Admin {
 		self::check_cap();
 		check_admin_referer( 'acr_clear_completed' );
 		ACR_Jobs::clear_completed();
+		wp_safe_redirect( admin_url( 'admin.php?page=acr-agent' ) );
+		exit;
+	}
+
+	public static function handle_release_claimed() {
+		self::check_cap();
+		check_admin_referer( 'acr_release_claimed' );
+		$released = ACR_Jobs::release_claimed( 0 ); // release all claimed regardless of age
+		set_transient( 'acr_notice', "Released {$released} stuck-claimed jobs back to pending.", 30 );
 		wp_safe_redirect( admin_url( 'admin.php?page=acr-agent' ) );
 		exit;
 	}

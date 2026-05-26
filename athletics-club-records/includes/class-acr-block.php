@@ -19,8 +19,10 @@ class ACR_Block {
 		}
 		register_block_type( 'acr/records', array(
 			'attributes' => array(
-				'gender' => array( 'type' => 'string', 'default' => 'women' ),
-				'filter' => array( 'type' => 'string', 'default' => '1' ),
+				'gender'      => array( 'type' => 'string', 'default' => 'all' ),
+				'filter'      => array( 'type' => 'string', 'default' => '1' ),
+				'hide_empty'  => array( 'type' => 'string', 'default' => '1' ),
+				'default_sex' => array( 'type' => 'string', 'default' => 'all' ),
 			),
 			'render_callback' => function( $attrs ) {
 				return ACR_Shortcode::render( $attrs );

@@ -105,6 +105,26 @@ class ACR_Jobs {
 		$wpdb->query( "DELETE FROM " . self::table() . " WHERE status IN ('done','failed')" );
 	}
 
+	/**
+	 * Reset jobs that have been "claimed" for longer than $min_age_minutes
+	 * back to "pending" so a fresh agent run can pick them up.
+	 *
+	 * Stuck-claimed jobs happen when an agent GETs /jobs (which atomically
+	 * marks them claimed) but never POSTs a result or fail.
+	 *
+	 * @param int $min_age_minutes default 10. Use 0 to release everything.
+	 * @return int number of jobs released.
+	 */
+	public static function release_claimed( $min_age_minutes = 10 ) {
+		global $wpdb;
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( max( 0, (int) $min_age_minutes ) * 60 ) );
+		$affected = $wpdb->query( $wpdb->prepare(
+			'UPDATE ' . self::table() . " SET status = %s, claimed_at = NULL WHERE status = %s AND (claimed_at IS NULL OR claimed_at < %s)",
+			self::STATUS_PENDING, self::STATUS_CLAIMED, $cutoff
+		) );
+		return (int) $affected;
+	}
+
 	public static function recent( $limit = 50 ) {
 		global $wpdb;
 		return $wpdb->get_results( $wpdb->prepare(
