@@ -1,15 +1,16 @@
 <?php
 /**
- * Recomputation engine (Option C).
+ * Recomputation engine (v0.2.0).
  *
- * Rebuilds the records table from raw performances + athlete DOBs against
- * the current age-group structure. Reads first_claim flag — non-first-claim
- * athletes' performances are excluded.
+ * Uses Po10's per-performance age-group tag (age_group_at_time) rather than
+ * trying to compute age from DOB. Maps Po10's age groups to the club's
+ * current age-group structure.
  *
- * Wind-assisted performances are excluded (the BBAC page is explicit about
- * this). Indoor and outdoor are merged into a single record per (sex, age,
- * event) — the indoor marker is preserved on the performance row and shown
- * with a trailing 'i' in the public display.
+ * Filters:
+ *  - first_claim = 1
+ *  - is_wind_assisted = 0
+ *  - performance_value IS NOT NULL
+ *  - perf_year >= settings.performances_since
  *
  * @package AthleticsClubRecords
  */
@@ -19,21 +20,45 @@ defined( 'ABSPATH' ) || exit;
 class ACR_Recompute {
 
 	/**
-	 * Recompute every cell. Returns counts.
+	 * Po10 age-group label → our internal code.
+	 * Maps the legacy 2-yr (U13/U15/U17) into our new 2-yr (U14/U16/U18) where
+	 * the boundary aligns; otherwise keep as the closest equivalent.
 	 */
+	const PO10_TO_OURS = array(
+		'U11'  => 'U14',
+		'U12'  => 'U14',
+		'U13'  => 'U14',
+		'U14'  => 'U14',
+		'U15'  => 'U16',
+		'U16'  => 'U16',
+		'U17'  => 'U18',
+		'U18'  => 'U18',
+		'U20'  => 'U20',
+		'U23'  => 'SEN',
+		'SEN'  => 'SEN',
+		'OVER' => 'SEN',
+		'V35'  => 'V35', 'V40' => 'V40', 'V45' => 'V45', 'V50' => 'V50',
+		'V55'  => 'V55', 'V60' => 'V60', 'V65' => 'V65', 'V70' => 'V70',
+		'V75'  => 'V75', 'V80' => 'V80', 'V85' => 'V80', 'V90' => 'V80',
+	);
+
 	public function run() {
 		global $wpdb;
 		$pt = ACR_Performances::table();
 		$at = ACR_Athletes::table();
+		$settings = acr_get_settings();
+		$cutoff_year = (int) substr( $settings['performances_since'], 0, 4 );
 
-		$rows = $wpdb->get_results(
-			"SELECT p.*, a.dob, a.sex, a.first_claim, a.name as athlete_name
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT p.*, a.sex, a.first_claim, a.name as athlete_name
 			   FROM {$pt} p
 			   JOIN {$at} a ON a.id = p.athlete_id
 			  WHERE a.first_claim = 1
 			    AND p.is_wind_assisted = 0
-			    AND p.performance_value IS NOT NULL"
-		);
+			    AND p.performance_value IS NOT NULL
+			    AND (p.perf_year IS NULL OR p.perf_year >= %d)",
+			$cutoff_year
+		) );
 
 		$buckets = $this->bucket( $rows );
 		$updates = 0;
@@ -62,48 +87,27 @@ class ACR_Recompute {
 		}
 		update_option( 'acr_last_recompute', current_time( 'mysql' ) );
 		return array(
-			'cells_updated' => $updates,
-			'cells_skipped_override' => $skipped,
+			'cells_updated'           => $updates,
+			'cells_skipped_override'  => $skipped,
 			'performances_considered' => count( $rows ),
+			'buckets'                 => count( $buckets ),
 		);
 	}
 
-	/**
-	 * Recompute only the cells touched by one athlete's events.
-	 */
 	public function run_for_athlete( $athlete_id ) {
-		// For simplicity v1 just runs a full recompute. With many athletes we
-		// can scope this to the events the athlete has performed in.
 		return $this->run();
 	}
 
-	/**
-	 * Group performances into (sex, age_group, event) buckets and keep the best.
-	 *
-	 * @return array key => best performance row
-	 */
 	protected function bucket( array $rows ) {
 		$buckets = array();
-		$age_defs = acr_age_groups();
-
 		foreach ( $rows as $p ) {
-			if ( ! $p->perf_date || ! $p->event || ! $p->performance_value ) {
+			if ( ! $p->event || ! $p->performance_value ) {
 				continue;
 			}
-			$age = $p->dob ? ACR_Athletes::age_on_date( $p->dob, $p->perf_date ) : null;
-			if ( $age === null ) {
-				// Without DOB we can't be sure which age group — skip the youth
-				// age-group records but still allow into senior (the rule used
-				// is conservative: only count for SEN if athlete has any senior-
-				// era performance).
-				$age = 99; // forces into senior+ bracket only.
-			}
-
-			$age_group = $this->bucket_for_age( $age, $age_defs );
+			$age_group = $this->map_age_group( $p->age_group_at_time );
 			if ( ! $age_group ) {
 				continue;
 			}
-
 			$key = strtoupper( $p->sex ) . '|' . $age_group . '|' . $p->event;
 			$candidate = array(
 				'performance_raw'   => $p->performance_raw,
@@ -114,7 +118,6 @@ class ACR_Recompute {
 				'perf_date'         => $p->perf_date,
 				'performance_id'    => (int) $p->id,
 			);
-
 			if ( ! isset( $buckets[ $key ] ) ) {
 				$buckets[ $key ] = $candidate;
 				continue;
@@ -131,12 +134,11 @@ class ACR_Recompute {
 		return $buckets;
 	}
 
-	protected function bucket_for_age( $age, $age_defs ) {
-		foreach ( $age_defs as $code => $b ) {
-			if ( $age >= $b['min'] && $age <= $b['max'] ) {
-				return $code;
-			}
+	protected function map_age_group( $po10_label ) {
+		if ( ! $po10_label ) {
+			return null;
 		}
-		return null;
+		$key = strtoupper( trim( $po10_label ) );
+		return self::PO10_TO_OURS[ $key ] ?? null;
 	}
 }

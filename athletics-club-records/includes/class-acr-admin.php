@@ -117,8 +117,8 @@ class ACR_Admin {
 	public static function handle_plan() {
 		self::check_cap();
 		check_admin_referer( 'acr_plan' );
-		$strategy = isset( $_POST['strategy'] ) ? sanitize_text_field( wp_unslash( $_POST['strategy'] ) ) : 'stale_first';
-		$max      = isset( $_POST['max'] ) ? (int) $_POST['max'] : 25;
+		$strategy = isset( $_POST['strategy'] ) ? sanitize_text_field( wp_unslash( $_POST['strategy'] ) ) : 'rankings_sweep';
+		$max      = isset( $_POST['max'] ) ? (int) $_POST['max'] : 300;
 		$added    = ( new ACR_Planner() )->plan( $strategy, $max );
 		set_transient( 'acr_notice', "Queued {$added} jobs ({$strategy}).", 30 );
 		wp_safe_redirect( admin_url( 'admin.php?page=acr-agent' ) );
@@ -146,12 +146,14 @@ class ACR_Admin {
 		self::check_cap();
 		check_admin_referer( 'acr_save_settings' );
 		$patch = array(
-			'club_name'      => sanitize_text_field( wp_unslash( $_POST['club_name'] ?? '' ) ),
-			'club_short'     => sanitize_text_field( wp_unslash( $_POST['club_short'] ?? '' ) ),
-			'po10_club_uuid' => sanitize_text_field( wp_unslash( $_POST['po10_club_uuid'] ?? '' ) ),
-			'ninja_women_id' => (int) ( $_POST['ninja_women_id'] ?? 0 ),
-			'ninja_men_id'   => (int) ( $_POST['ninja_men_id'] ?? 0 ),
-			'record_colour'  => sanitize_hex_color( wp_unslash( $_POST['record_colour'] ?? '#c0392b' ) ),
+			'club_name'          => sanitize_text_field( wp_unslash( $_POST['club_name'] ?? '' ) ),
+			'club_short'         => sanitize_text_field( wp_unslash( $_POST['club_short'] ?? '' ) ),
+			'po10_club_uuid'     => sanitize_text_field( wp_unslash( $_POST['po10_club_uuid'] ?? '' ) ),
+			'po10_club_name'     => sanitize_text_field( wp_unslash( $_POST['po10_club_name'] ?? '' ) ),
+			'ninja_women_id'     => (int) ( $_POST['ninja_women_id'] ?? 0 ),
+			'ninja_men_id'       => (int) ( $_POST['ninja_men_id'] ?? 0 ),
+			'record_colour'      => sanitize_hex_color( wp_unslash( $_POST['record_colour'] ?? '#c0392b' ) ),
+			'performances_since' => sanitize_text_field( wp_unslash( $_POST['performances_since'] ?? '2022-01-01' ) ),
 		);
 		acr_update_settings( $patch );
 		set_transient( 'acr_notice', 'Settings saved.', 15 );

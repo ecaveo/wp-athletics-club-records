@@ -23,6 +23,20 @@
 				</td>
 			</tr>
 			<tr>
+				<th><label>Power of 10 club name (for athlete search)</label></th>
+				<td>
+					<input type="text" name="po10_club_name" value="<?php echo esc_attr( $settings['po10_club_name'] ); ?>" class="regular-text" />
+					<p class="description">As typed into Po10's athlete search Club field. e.g. "Brentwood Beagles".</p>
+				</td>
+			</tr>
+			<tr>
+				<th><label>Performances since</label></th>
+				<td>
+					<input type="date" name="performances_since" value="<?php echo esc_attr( $settings['performances_since'] ); ?>" />
+					<p class="description">Records ignore performances before this date. Default 2022-01-01 (BBAC founded).</p>
+				</td>
+			</tr>
+			<tr>
 				<th><label>Ninja Tables ID — Women</label></th>
 				<td><input type="number" name="ninja_women_id" value="<?php echo (int) $settings['ninja_women_id']; ?>" class="small-text" /></td>
 			</tr>

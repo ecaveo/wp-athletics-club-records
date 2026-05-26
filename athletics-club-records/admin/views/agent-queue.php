@@ -12,13 +12,12 @@
 		<label>
 			Strategy:
 			<select name="strategy">
-				<option value="stale_first">Stale first (refresh athletes &gt;14 days)</option>
-				<option value="bootstrap">Bootstrap (all known athletes)</option>
-				<option value="full">Full reconciliation (every event × age × sex)</option>
+				<option value="rankings_sweep">Full sweep (every year since founded × sex × event)</option>
+				<option value="current_year">Current year only (incremental refresh)</option>
 			</select>
 		</label>
 		<label style="margin-left:1em;">
-			Max jobs: <input type="number" name="max" value="25" min="1" max="500" style="width:6em;" />
+			Max jobs: <input type="number" name="max" value="300" min="1" max="1000" style="width:6em;" />
 		</label>
 		<button class="button button-primary" type="submit">Plan refresh</button>
 	</form>

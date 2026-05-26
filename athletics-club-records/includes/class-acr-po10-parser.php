@@ -82,7 +82,7 @@ class ACR_Po10_Parser {
 		), array( 'id' => $candidate->id ) );
 
 		// Auto-enqueue an athlete_profile job for the newly-identified athlete.
-		$profile_url = isset( $body['profile_url'] ) ? $body['profile_url'] : ( 'https://www.powerof10.uk/Home/Athlete/' . $body['po10_id'] );
+		$profile_url = isset( $body['profile_url'] ) ? $body['profile_url'] : ( ACR_Planner::ATHLETE_BASE . $body['po10_id'] );
 		ACR_Jobs::enqueue( ACR_Jobs::TYPE_ATHLETE_PROFILE, $profile_url, array( 'athlete_id' => $candidate->id ) );
 
 		return array( 'matched' => true, 'athlete_id' => (int) $candidate->id, 'po10_id' => $body['po10_id'] );
