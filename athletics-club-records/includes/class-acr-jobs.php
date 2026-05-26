@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || exit;
 class ACR_Jobs {
 
 	const TYPE_ATHLETE_PROFILE = 'athlete_profile';
+	const TYPE_ATHLETE_SEARCH  = 'athlete_search';
 	const TYPE_CLUB_RANKING    = 'club_ranking';
 	const TYPE_CLUB_ATHLETES   = 'club_athletes';
 
@@ -25,18 +26,29 @@ class ACR_Jobs {
 
 	public static function enqueue( $type, $url, $payload = null ) {
 		global $wpdb;
-		// Dedupe — don't add the same pending URL twice.
-		$existing = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM " . self::table() . " WHERE target_url = %s AND status IN ('pending','claimed') LIMIT 1",
-			$url
-		) );
+		$payload_json = $payload ? wp_json_encode( $payload ) : null;
+
+		// Dedupe on (type, url, payload). The club_ranking sweep produces 270+
+		// jobs that all share the same URL — payload makes them distinct.
+		if ( $payload_json !== null ) {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM " . self::table() . " WHERE job_type = %s AND target_url = %s AND payload = %s AND status IN ('pending','claimed') LIMIT 1",
+				$type, $url, $payload_json
+			) );
+		} else {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM " . self::table() . " WHERE job_type = %s AND target_url = %s AND (payload IS NULL OR payload = '') AND status IN ('pending','claimed') LIMIT 1",
+				$type, $url
+			) );
+		}
+
 		if ( $existing ) {
 			return $existing;
 		}
 		$wpdb->insert( self::table(), array(
 			'job_type'    => $type,
 			'target_url'  => $url,
-			'payload'     => $payload ? wp_json_encode( $payload ) : null,
+			'payload'     => $payload_json,
 			'status'      => self::STATUS_PENDING,
 		) );
 		return (int) $wpdb->insert_id;
