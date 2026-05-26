@@ -11,8 +11,33 @@ class ACR_Activator {
 
 	public static function activate() {
 		self::create_tables();
+		self::migrate();
 		self::set_default_options();
 		update_option( 'acr_db_version', ACR_DB_VERSION );
+	}
+
+	/**
+	 * Run any in-place migrations needed beyond what dbDelta can express.
+	 * dbDelta cannot drop indexes or change column types in some cases.
+	 */
+	private static function migrate() {
+		global $wpdb;
+		$athletes = $wpdb->prefix . 'acr_athletes';
+		$installed = get_option( 'acr_db_version' );
+
+		if ( version_compare( $installed ?: '0', '3', '<' ) ) {
+			// v3: po10_id widened to VARCHAR(40) and UNIQUE→INDEX (multiple
+			// empty po10_ids must coexist while we discover UUIDs).
+			$idx = $wpdb->get_results( "SHOW INDEX FROM {$athletes} WHERE Key_name = 'po10_id'" );
+			if ( $idx ) {
+				$is_unique = isset( $idx[0]->Non_unique ) && (int) $idx[0]->Non_unique === 0;
+				if ( $is_unique ) {
+					$wpdb->query( "ALTER TABLE {$athletes} DROP INDEX po10_id" );
+					$wpdb->query( "ALTER TABLE {$athletes} ADD INDEX po10_id (po10_id)" );
+				}
+			}
+			$wpdb->query( "ALTER TABLE {$athletes} MODIFY po10_id VARCHAR(40) NOT NULL DEFAULT ''" );
+		}
 	}
 
 	private static function create_tables() {
@@ -22,7 +47,7 @@ class ACR_Activator {
 
 		$athletes = "CREATE TABLE {$wpdb->prefix}acr_athletes (
 			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-			po10_id VARCHAR(32) NOT NULL DEFAULT '',
+			po10_id VARCHAR(40) NOT NULL DEFAULT '',
 			name VARCHAR(191) NOT NULL,
 			sex CHAR(1) NOT NULL,
 			dob DATE NULL,
@@ -34,7 +59,7 @@ class ACR_Activator {
 			last_profile_scrape DATETIME NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
-			UNIQUE KEY po10_id (po10_id),
+			KEY po10_id (po10_id),
 			KEY name (name(50)),
 			KEY sex (sex)
 		) $charset_collate;";
@@ -45,18 +70,23 @@ class ACR_Activator {
 			event VARCHAR(32) NOT NULL,
 			performance_raw VARCHAR(32) NOT NULL,
 			performance_value DECIMAL(12,4) NULL,
+			age_group_at_time VARCHAR(8) NULL,
+			perf_year SMALLINT NULL,
 			is_indoor TINYINT(1) NOT NULL DEFAULT 0,
 			is_wind_assisted TINYINT(1) NOT NULL DEFAULT 0,
 			is_field TINYINT(1) NOT NULL DEFAULT 0,
+			is_pb TINYINT(1) NOT NULL DEFAULT 0,
 			position VARCHAR(8) NULL,
 			venue VARCHAR(191) NULL,
-			perf_date DATE NOT NULL,
+			meeting VARCHAR(191) NULL,
+			perf_date DATE NULL,
 			source_url VARCHAR(255) NULL,
 			fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY athlete_event_date (athlete_id, event, perf_date),
 			KEY event (event),
-			KEY perf_date (perf_date)
+			KEY perf_date (perf_date),
+			KEY age_group (age_group_at_time)
 		) $charset_collate;";
 
 		$records = "CREATE TABLE {$wpdb->prefix}acr_records (
