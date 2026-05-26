@@ -4,7 +4,7 @@ Tags: athletics, records, power of 10, club, sports
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.3.4
+Stable tag: 0.3.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,10 @@ You can still use it as a manual records database — admin can edit any cell. B
 Yes. Set your club's UUID in Settings.
 
 == Changelog ==
+
+= 0.3.5 =
+* Bugfix: ACR_Performances::insert_unique() now refreshes mutable fields on an existing match instead of returning early. A re-POST to /jobs/{id}/result can now correct an earlier wrong age_group_at_time (or venue, meeting, is_pb, position, etc.) without requiring a manual wp-admin edit. Only non-null/non-empty caller-supplied values overwrite — sparse re-POSTs never clobber populated fields with NULL.
+* Dedupe key (athlete_id, event, perf_date / perf_year, performance_raw) is unchanged.
 
 = 0.3.4 =
 * UKA Competition Rules (TR3 S2 / TR3 S4) compliance — disallowed (event, age_group) combinations are no longer rendered.

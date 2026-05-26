@@ -17,6 +17,17 @@ class ACR_Performances {
 	/**
 	 * Insert a performance unless an identical (athlete, event, date, raw) already exists.
 	 *
+	 * v0.3.5: when an identical row is found, mutable fields (age_group_at_time,
+	 * is_indoor, is_wind_assisted, is_pb, position, venue, meeting, source_url,
+	 * plus the parser-derived performance_value and is_field) are refreshed from
+	 * the new payload. This lets a re-POST correct earlier data — most importantly
+	 * a wrong age_group_at_time — without requiring a manual wp-admin edit. Only
+	 * non-null caller-supplied values overwrite existing values, so a sparse
+	 * re-POST never clobbers a populated field with NULL.
+	 *
+	 * The dedupe key fields (athlete_id, event, perf_date / perf_year, performance_raw)
+	 * are never updated — by definition they match.
+	 *
 	 * @return int performance row id.
 	 */
 	public static function insert_unique( array $data ) {
@@ -36,11 +47,31 @@ class ACR_Performances {
 				$data['athlete_id'], $data['event'], $year, $data['performance_raw']
 			) );
 		}
+
+		$parsed = ACR_PerfValue::parse( $data['performance_raw'], $data['event'] );
+
 		if ( $existing ) {
+			// Refresh mutable fields on the existing row.
+			$update = array(
+				'performance_value' => $parsed['value'],
+				'is_field'          => ACR_PerfValue::is_field_event( $data['event'] ) ? 1 : 0,
+			);
+			$bool_fields   = array( 'is_indoor', 'is_wind_assisted', 'is_pb' );
+			$string_fields = array( 'age_group_at_time', 'position', 'venue', 'meeting', 'source_url' );
+			foreach ( $bool_fields as $f ) {
+				if ( array_key_exists( $f, $data ) && $data[ $f ] !== null ) {
+					$update[ $f ] = (int) (bool) $data[ $f ];
+				}
+			}
+			foreach ( $string_fields as $f ) {
+				if ( array_key_exists( $f, $data ) && $data[ $f ] !== null && $data[ $f ] !== '' ) {
+					$update[ $f ] = $data[ $f ];
+				}
+			}
+			$wpdb->update( $t, $update, array( 'id' => $existing ) );
 			return $existing;
 		}
 
-		$parsed = ACR_PerfValue::parse( $data['performance_raw'], $data['event'] );
 		$row = array(
 			'athlete_id'        => (int) $data['athlete_id'],
 			'event'             => $data['event'],
