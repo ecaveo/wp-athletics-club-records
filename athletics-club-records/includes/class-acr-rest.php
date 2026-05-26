@@ -62,6 +62,45 @@ class ACR_REST {
 			'callback'            => array( __CLASS__, 'release_claimed' ),
 			'permission_callback' => array( __CLASS__, 'check_token' ),
 		) );
+		register_rest_route( 'acr/v1', '/athletes', array(
+			'methods'             => 'GET',
+			'callback'            => array( __CLASS__, 'list_athletes' ),
+			'permission_callback' => array( __CLASS__, 'check_token' ),
+		) );
+	}
+
+	/**
+	 * GET /athletes — list known athletes (id, name, sex, po10_id, first_claim).
+	 *
+	 * Added in v0.3.6 so an agent can look up Po10 UUIDs from the WP DB without
+	 * scraping Po10's club rankings (which are AJAX-gated and rate-limited).
+	 * Filter via ?sex=M|W and ?first_claim=1.
+	 */
+	public static function list_athletes( $request ) {
+		$args = array();
+		$sex = $request->get_param( 'sex' );
+		if ( $sex ) {
+			$args['sex'] = $sex;
+		}
+		$first_claim = $request->get_param( 'first_claim' );
+		if ( $first_claim !== null && $first_claim !== '' ) {
+			$args['first_claim'] = $first_claim;
+		}
+		$rows = ACR_Athletes::all( $args );
+		$out = array();
+		foreach ( (array) $rows as $r ) {
+			$out[] = array(
+				'id'          => (int) $r->id,
+				'name'        => $r->name,
+				'sex'         => $r->sex,
+				'po10_id'     => $r->po10_id,
+				'first_claim' => (int) $r->first_claim,
+			);
+		}
+		return rest_ensure_response( array(
+			'count'    => count( $out ),
+			'athletes' => $out,
+		) );
 	}
 
 	public static function release_claimed( $request ) {

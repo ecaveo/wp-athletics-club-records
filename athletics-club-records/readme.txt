@@ -4,7 +4,7 @@ Tags: athletics, records, power of 10, club, sports
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.3.5
+Stable tag: 0.3.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,9 @@ You can still use it as a manual records database — admin can edit any cell. B
 Yes. Set your club's UUID in Settings.
 
 == Changelog ==
+
+= 0.3.6 =
+* New: GET /wp-json/acr/v1/athletes endpoint (auth required) returning id, name, sex, po10_id, first_claim for every athlete in the DB. Lets an agent look up Po10 UUIDs without scraping the rate-limited club rankings page. Supports ?sex= and ?first_claim= filters.
 
 = 0.3.5 =
 * Bugfix: ACR_Performances::insert_unique() now refreshes mutable fields on an existing match instead of returning early. A re-POST to /jobs/{id}/result can now correct an earlier wrong age_group_at_time (or venue, meeting, is_pb, position, etc.) without requiring a manual wp-admin edit. Only non-null/non-empty caller-supplied values overwrite — sparse re-POSTs never clobber populated fields with NULL.
