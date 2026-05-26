@@ -4,7 +4,7 @@ Tags: athletics, records, power of 10, club, sports
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.3.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,28 @@ You can still use it as a manual records database — admin can edit any cell. B
 Yes. Set your club's UUID in Settings.
 
 == Changelog ==
+
+= 0.3.1 =
+* Bugfix: athletes.po10_id widened from VARCHAR(32) to VARCHAR(40). Po10 UUIDs are 36 chars and were being rejected on strict-mode MySQL hosts.
+* Bugfix: dropped UNIQUE constraint on athletes.po10_id (multiple empty values were colliding when the seeder ran).
+* Bugfix: jobs queue dedupe now considers (type, url, payload) instead of url alone — full rankings sweep can now actually enqueue all 270+ jobs.
+* Migration runs on activation for sites upgrading from v0.3.0 in place.
+* Uninstall now also deletes acr_last_seed.
+
+= 0.3.0 =
+* Pivoted to club-rankings sweep approach — one job per (year × sex × event), age=OVERALL returns all age groups inline-tagged.
+* Drops athlete_search / athlete_profile complexity; ~270 jobs for full 2022-present seed, ~54 per incremental refresh.
+* Parser captures wind values; w-prefixed (e.g. w2.4) flagged as wind-assisted automatically.
+* Multiple stacked performance lines per athlete handled.
+* SOP rewritten for the simpler flow.
+
+= 0.2.0 =
+* Po10 athlete URLs now use UUID format (/Home/Athlete/{uuid}).
+* New athlete_search job type — discovers an athlete's Po10 UUID via the search form.
+* Recompute now uses Po10's age_group_at_time on each performance instead of computing from DOB. DOB no longer required.
+* New "Performances since" setting (default 2022-01-01) — records ignore older performances.
+* SOP prompt rewritten to drive Best Known Performances table extraction (much simpler than year-tab walking).
+* DB schema: performances table gains age_group_at_time, perf_year, is_pb, meeting columns. In-place upgrade on activation.
 
 = 0.1.0 =
 * Initial release.
