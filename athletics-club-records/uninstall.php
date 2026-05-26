@@ -27,3 +27,4 @@ foreach ( $tables as $table ) {
 delete_option( 'acr_settings' );
 delete_option( 'acr_db_version' );
 delete_option( 'acr_last_recompute' );
+delete_option( 'acr_last_seed' );
