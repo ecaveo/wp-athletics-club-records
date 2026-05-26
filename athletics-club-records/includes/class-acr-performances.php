@@ -23,10 +23,19 @@ class ACR_Performances {
 		global $wpdb;
 		$t = self::table();
 
-		$existing = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM {$t} WHERE athlete_id = %d AND event = %s AND perf_date = %s AND performance_raw = %s LIMIT 1",
-			$data['athlete_id'], $data['event'], $data['perf_date'], $data['performance_raw']
-		) );
+		// Dedupe on (athlete, event, date if present else year, raw)
+		if ( ! empty( $data['perf_date'] ) ) {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t} WHERE athlete_id = %d AND event = %s AND perf_date = %s AND performance_raw = %s LIMIT 1",
+				$data['athlete_id'], $data['event'], $data['perf_date'], $data['performance_raw']
+			) );
+		} else {
+			$year = isset( $data['perf_year'] ) ? (int) $data['perf_year'] : 0;
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t} WHERE athlete_id = %d AND event = %s AND perf_year = %d AND performance_raw = %s AND perf_date IS NULL LIMIT 1",
+				$data['athlete_id'], $data['event'], $year, $data['performance_raw']
+			) );
+		}
 		if ( $existing ) {
 			return $existing;
 		}
@@ -37,12 +46,16 @@ class ACR_Performances {
 			'event'             => $data['event'],
 			'performance_raw'   => $data['performance_raw'],
 			'performance_value' => $parsed['value'],
+			'age_group_at_time' => isset( $data['age_group_at_time'] ) ? $data['age_group_at_time'] : null,
+			'perf_year'         => isset( $data['perf_year'] ) ? (int) $data['perf_year'] : ( ! empty( $data['perf_date'] ) ? (int) substr( $data['perf_date'], 0, 4 ) : null ),
 			'is_indoor'         => isset( $data['is_indoor'] ) ? (int) $data['is_indoor'] : ( $parsed['indoor'] ? 1 : 0 ),
 			'is_wind_assisted'  => isset( $data['is_wind_assisted'] ) ? (int) $data['is_wind_assisted'] : ( $parsed['wind'] ? 1 : 0 ),
 			'is_field'          => ACR_PerfValue::is_field_event( $data['event'] ) ? 1 : 0,
+			'is_pb'             => isset( $data['is_pb'] ) ? (int) (bool) $data['is_pb'] : 0,
 			'position'          => isset( $data['position'] ) ? $data['position'] : null,
 			'venue'             => isset( $data['venue'] ) ? $data['venue'] : null,
-			'perf_date'         => $data['perf_date'],
+			'meeting'           => isset( $data['meeting'] ) ? $data['meeting'] : null,
+			'perf_date'         => isset( $data['perf_date'] ) ? $data['perf_date'] : null,
 			'source_url'        => isset( $data['source_url'] ) ? $data['source_url'] : null,
 		);
 		$wpdb->insert( $t, $row );
