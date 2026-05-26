@@ -3,7 +3,7 @@
  * Plugin Name:       Athletics Club Records
  * Plugin URI:        https://github.com/brentwoodbeagles/wp-athletics-club-records
  * Description:       Maintains an athletics club's age-group records by pulling first-claim member performances from Power of 10 via an admin-driven Claude-in-Chrome agent loop. Records are recomputed from raw performances against the current age-group structure (U14/U16/U18/U20/senior/masters).
- * Version:           0.1.0
+ * Version:           0.3.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Brentwood Beagles Athletics Club
@@ -17,11 +17,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ACR_VERSION', '0.1.0' );
+define( 'ACR_VERSION', '0.3.1' );
 define( 'ACR_PLUGIN_FILE', __FILE__ );
 define( 'ACR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ACR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'ACR_DB_VERSION', '1' );
+define( 'ACR_DB_VERSION', '3' );
 
 // Autoload the includes directory.
 foreach ( glob( ACR_PLUGIN_DIR . 'includes/class-*.php' ) as $file ) {
@@ -34,8 +34,13 @@ register_deactivation_hook( __FILE__, array( 'ACR_Deactivator', 'deactivate' ) )
 
 /**
  * Bootstrap the plugin once WordPress is ready.
+ * Also runs an in-place DB upgrade if the schema version is behind.
  */
 function acr_bootstrap() {
+	$installed = get_option( 'acr_db_version' );
+	if ( $installed !== ACR_DB_VERSION ) {
+		ACR_Activator::activate();
+	}
 	ACR_Admin::init();
 	ACR_REST::init();
 	ACR_Shortcode::init();
@@ -50,13 +55,15 @@ add_action( 'plugins_loaded', 'acr_bootstrap' );
  */
 function acr_get_settings() {
 	$defaults = array(
-		'club_name'       => 'Brentwood Beagles Athletics Club',
-		'club_short'      => 'BBAC',
-		'po10_club_uuid'  => '0448550d-8759-4234-a7e1-415cdeb12ae1',
-		'ninja_women_id'  => 9354,
-		'ninja_men_id'    => 9359,
-		'record_colour'   => '#c0392b',
-		'agent_token'     => '',
+		'club_name'           => 'Brentwood Beagles Athletics Club',
+		'club_short'          => 'BBAC',
+		'po10_club_uuid'      => '0448550d-8759-4234-a7e1-415cdeb12ae1',
+		'po10_club_name'      => 'Brentwood Beagles', // for athlete_search filter
+		'ninja_women_id'      => 9354,
+		'ninja_men_id'        => 9359,
+		'record_colour'       => '#c0392b',
+		'agent_token'         => '',
+		'performances_since'  => '2022-01-01',
 	);
 	$saved = get_option( 'acr_settings', array() );
 	return array_merge( $defaults, is_array( $saved ) ? $saved : array() );
