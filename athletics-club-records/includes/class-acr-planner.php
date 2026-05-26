@@ -1,16 +1,22 @@
 <?php
 /**
- * Delta planner.
+ * Delta planner (v0.3.0) — club-rankings sweep.
  *
- * Decides which Po10 URLs the agent should visit next based on what we
- * already know, when we last fetched it, and where records are likely to
- * change. The aim is to keep the per-refresh scraping footprint small.
+ * Po10's club page Rankings widget lets you pick year × sex × age × event.
+ * Selecting age=OVERALL returns every age group inline-tagged. So one query
+ * per (year × sex × event) cell yields *all* club performances for that
+ * combination — across every age group — already filtered to first-claim
+ * members.
  *
  * Strategies:
- *   - `bootstrap`   : enqueue club athlete list + every known athlete profile.
- *   - `stale_first` : refresh athletes whose profile was scraped >14 days ago,
- *                     plus all current-year club rankings.
- *   - `full`        : reconciliation sweep — every athlete profile, every cell.
+ *   - `rankings_sweep`   : full historical seed. Years from
+ *                           settings.performances_since up to current year,
+ *                           both sexes, every track-and-field event.
+ *   - `current_year`     : just the current year (incremental refresh).
+ *   - `single_year`      : one year passed as payload.year.
+ *
+ * Each job's URL is the club page; the payload carries the filters the
+ * agent must apply in the UI.
  *
  * @package AthleticsClubRecords
  */
@@ -19,79 +25,69 @@ defined( 'ABSPATH' ) || exit;
 
 class ACR_Planner {
 
-	public function plan( $strategy = 'stale_first', $max = 25 ) {
-		$settings = acr_get_settings();
-		$uuid     = $settings['po10_club_uuid'];
-		$added    = 0;
+	/**
+	 * Plan a batch of club_ranking jobs.
+	 *
+	 * @param string $strategy
+	 * @param int    $max maximum jobs to enqueue this call.
+	 * @param array  $args optional overrides (year, sex, etc).
+	 * @return int jobs enqueued.
+	 */
+	public function plan( $strategy = 'rankings_sweep', $max = 300, $args = array() ) {
+		$settings   = acr_get_settings();
+		$club_url   = 'https://www.powerof10.uk/Home/Club/' . $settings['po10_club_uuid'];
+		$start_year = (int) substr( $settings['performances_since'], 0, 4 );
+		$current    = (int) gmdate( 'Y' );
 
-		// Always start with a club athletes list — that's how we discover new
-		// members and confirm DOBs.
-		$club_url = 'https://www.powerof10.uk/Home/Club/' . $uuid;
-		ACR_Jobs::enqueue( ACR_Jobs::TYPE_CLUB_ATHLETES, $club_url );
-		$added++;
+		switch ( $strategy ) {
+			case 'current_year':
+				$years = array( $current );
+				break;
+			case 'single_year':
+				$years = array( (int) ( $args['year'] ?? $current ) );
+				break;
+			case 'rankings_sweep':
+			default:
+				$years = range( $start_year, $current );
+				break;
+		}
 
-		if ( $strategy === 'bootstrap' ) {
-			foreach ( ACR_Athletes::all() as $a ) {
-				if ( ! $a->po10_id ) {
-					continue;
-				}
-				$url = $a->profile_url ?: 'https://www.powerof10.uk/athletes/profile.aspx?athleteid=' . $a->po10_id;
-				if ( ACR_Jobs::enqueue( ACR_Jobs::TYPE_ATHLETE_PROFILE, $url, array( 'athlete_id' => $a->id ) ) ) {
-					$added++;
+		$sexes  = ! empty( $args['sexes'] ) ? $args['sexes'] : array( 'W', 'M' );
+		$events = ! empty( $args['events'] ) ? $args['events'] : self::default_events();
+
+		$added = 0;
+		foreach ( $years as $year ) {
+			foreach ( $sexes as $sex ) {
+				foreach ( $events as $event ) {
 					if ( $added >= $max ) {
 						return $added;
 					}
-				}
-			}
-			return $added;
-		}
-
-		if ( $strategy === 'stale_first' ) {
-			$cutoff = gmdate( 'Y-m-d H:i:s', strtotime( '-14 days' ) );
-			global $wpdb;
-			$rows = $wpdb->get_results( $wpdb->prepare(
-				'SELECT * FROM ' . ACR_Athletes::table() . ' WHERE first_claim = 1 AND po10_id <> "" AND (last_profile_scrape IS NULL OR last_profile_scrape < %s) ORDER BY last_profile_scrape ASC LIMIT %d',
-				$cutoff, $max
-			) );
-			foreach ( $rows as $a ) {
-				$url = $a->profile_url ?: 'https://www.powerof10.uk/athletes/profile.aspx?athleteid=' . $a->po10_id;
-				if ( ACR_Jobs::enqueue( ACR_Jobs::TYPE_ATHLETE_PROFILE, $url, array( 'athlete_id' => $a->id ) ) ) {
-					$added++;
-				}
-			}
-			return $added;
-		}
-
-		if ( $strategy === 'full' ) {
-			$events = array_merge( ...array_values( acr_events() ) );
-			$ages   = array_keys( acr_age_groups() );
-			$count  = 0;
-			foreach ( array( 'W', 'M' ) as $sex ) {
-				foreach ( $ages as $age ) {
-					if ( in_array( $age, array( 'SEN' ), true ) ) {
-						$po10_age = 'OVER';
-					} else {
-						$po10_age = $age;
-					}
-					foreach ( $events as $ev ) {
-						$url = sprintf(
-							'https://www.powerof10.uk/Home/SearchRankingsTrackClub?ev=%s&yr=allTime&sex=%s&age=%s&clb=%s&pg=1',
-							rawurlencode( $ev ), $sex, $po10_age, $uuid
-						);
-						if ( ACR_Jobs::enqueue( ACR_Jobs::TYPE_CLUB_RANKING, $url, array(
-							'sex' => $sex, 'age' => $age, 'event' => $ev,
-						) ) ) {
-							$count++;
-							if ( $count >= $max ) {
-								return $added + $count;
-							}
-						}
+					$payload = array(
+						'year'  => $year,
+						'sex'   => $sex,
+						'age'   => 'OVERALL',
+						'event' => $event,
+					);
+					if ( ACR_Jobs::enqueue( ACR_Jobs::TYPE_CLUB_RANKING, $club_url, $payload ) ) {
+						$added++;
 					}
 				}
 			}
-			$added += $count;
 		}
-
 		return $added;
+	}
+
+	/**
+	 * Standard track & field events shown in the Po10 club rankings widget.
+	 */
+	public static function default_events() {
+		return array(
+			'60', '100', '200', '400', '800', '1500', 'Mile',
+			'3000', '5000', '10000', '2000SC', '3000SC',
+			'60 Hurdles', '100 Hurdles', '110 Hurdles', '400 Hurdles',
+			'High Jump', 'Pole Vault', 'Long Jump', 'Triple Jump',
+			'Shot', 'Discus', 'Hammer', 'Javelin',
+			'Heptathlon', 'Decathlon', 'Indoor Pen', '4x100', '4x400',
+		);
 	}
 }
